@@ -5,6 +5,7 @@ import * as Log from "@opencode-ai/core/util/log"
 import { Process } from "@/util/process"
 
 const SUPPORTED_IDES = [
+  { name: "Unbroken Code" as const, cmd: "uc" },
   { name: "Windsurf" as const, cmd: "windsurf" },
   { name: "Visual Studio Code - Insiders" as const, cmd: "code-insiders" },
   { name: "Visual Studio Code" as const, cmd: "code" },

@@ -1,10 +1,16 @@
-import { describe, expect, test, afterEach } from "bun:test"
+import { describe, expect, test, beforeEach, afterAll } from "bun:test"
 import { Ide } from "../../src/ide"
 
 describe("ide", () => {
   const original = { ...process.env }
 
-  afterEach(() => {
+  beforeEach(() => {
+    Object.keys(process.env).forEach((key) => {
+      delete process.env[key]
+    })
+  })
+
+  afterAll(() => {
     Object.keys(process.env).forEach((key) => {
       delete process.env[key]
     })
@@ -31,6 +37,13 @@ describe("ide", () => {
     process.env["GIT_ASKPASS"] = "/path/to/Cursor.app/Contents/Resources/app/extensions/git/dist/askpass.sh"
 
     expect(Ide.ide()).toBe("Cursor")
+  })
+
+  test("should detect Unbroken Code from vscode env", () => {
+    process.env["TERM_PROGRAM"] = "vscode"
+    process.env["GIT_ASKPASS"] = "/Applications/Unbroken Code.app/Contents/Resources/app/extensions/git/dist/askpass.sh"
+
+    expect(Ide.ide()).toBe("Unbroken Code")
   })
 
   test("should detect VSCodium", () => {
