@@ -62,25 +62,25 @@ export type RunTheme = {
   block: RunBlockTheme
 }
 
-type ThemeColor = Exclude<keyof TuiThemeCurrent, "thinkingOpacity">
+type ThemeColor = Exclude<keyof TuiThemeCurrent, "thinkingOpacity" | "styleBold" | "styleItalic">
+type RequiredThemeColor = "primary" | "secondary" | "accent" | "text" | "textMuted" | "background"
 type HexColor = `#${string}`
 type RefName = string
 type Variant = {
   dark: HexColor | RefName
   light: HexColor | RefName
 }
-type ColorValue = HexColor | RefName | Variant | RGBA | number
+type ColorValue = HexColor | RefName | Variant | RGBA
 type ThemeJson = {
   defs?: Record<string, HexColor | RefName>
-  theme: Omit<Record<ThemeColor, ColorValue>, "selectedListItemText" | "backgroundMenu"> & {
+  theme: Partial<Omit<Record<ThemeColor, ColorValue>, "selectedListItemText" | "backgroundMenu">> &
+    Pick<Record<RequiredThemeColor, ColorValue>, RequiredThemeColor> & {
     selectedListItemText?: ColorValue
     backgroundMenu?: ColorValue
+    styleBold?: boolean
+    styleItalic?: boolean
     thinkingOpacity?: number
   }
-}
-
-type SharedSyntaxTheme = TuiThemeCurrent & {
-  _hasSelectedListItemText: boolean
 }
 
 export const transparent = RGBA.fromValues(0, 0, 0, 0)
@@ -281,6 +281,8 @@ export function resolveTheme(theme: ThemeJson, pick: "dark" | "light"): TuiTheme
         : resolveColor(theme.theme.selectedListItemText),
     backgroundMenu:
       theme.theme.backgroundMenu === undefined ? resolved.backgroundElement! : resolveColor(theme.theme.backgroundMenu),
+    styleBold: theme.theme.styleBold ?? true,
+    styleItalic: theme.theme.styleItalic ?? true,
     thinkingOpacity: theme.theme.thinkingOpacity ?? 0.6,
   }
 }
@@ -584,13 +586,11 @@ export async function resolveRunTheme(renderer: CliRenderer): Promise<RunTheme> 
     }
 
     const pick = renderer.themeMode ?? mode(RGBA.fromHex(bg))
-    const theme = resolveTheme(generateSystem(colors, pick), pick)
+    const generated = generateSystem(colors, pick)
+    const theme = resolveTheme(generated, pick)
     const indexed = indexedPalette(colors, 256)
     const shared = await import("../tui/context/theme")
-    const syntaxTheme: SharedSyntaxTheme = {
-      ...theme,
-      _hasSelectedListItemText: true,
-    }
+    const syntaxTheme = shared.resolveTheme(generated, pick)
     const syntax = shared.generateSyntax(syntaxTheme)
     return map(theme, splashTheme(theme, indexed), syntax, shared.generateSubtleSyntax(syntaxTheme))
   } catch {

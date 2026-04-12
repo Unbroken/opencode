@@ -1,3 +1,5 @@
+import malterlibCppHighlightPath from "./src/cli/cmd/tui/query/malterlib-cpp.scm" with { type: "file" }
+
 export default {
   // NOTE: FOR markdown, javascript and typescript, we use the opentui built-in parsers
   // Warn: when taking queries from the nvim-treesitter repo, make sure to include the query dependencies as well
@@ -49,7 +51,9 @@ export default {
       wasm: "https://github.com/tree-sitter/tree-sitter-cpp/releases/download/v0.23.4/tree-sitter-cpp.wasm",
       queries: {
         highlights: [
+          "https://raw.githubusercontent.com/nvim-treesitter/nvim-treesitter/refs/heads/master/queries/c/highlights.scm",
           "https://raw.githubusercontent.com/nvim-treesitter/nvim-treesitter/refs/heads/master/queries/cpp/highlights.scm",
+          malterlibCppHighlightPath,
         ],
         locals: [
           "https://raw.githubusercontent.com/nvim-treesitter/nvim-treesitter/refs/heads/master/queries/cpp/locals.scm",

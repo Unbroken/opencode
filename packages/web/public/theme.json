@@ -87,7 +87,48 @@
         "syntaxNumber": { "$ref": "#/definitions/colorValue" },
         "syntaxType": { "$ref": "#/definitions/colorValue" },
         "syntaxOperator": { "$ref": "#/definitions/colorValue" },
-        "syntaxPunctuation": { "$ref": "#/definitions/colorValue" }
+        "syntaxPunctuation": { "$ref": "#/definitions/colorValue" },
+        "syntaxLanguage": { "$ref": "#/definitions/colorValue" },
+        "syntaxKeywordType": { "$ref": "#/definitions/colorValue" },
+        "syntaxKeywordStorage": { "$ref": "#/definitions/colorValue" },
+        "syntaxKeywordAccess": { "$ref": "#/definitions/colorValue" },
+        "syntaxKeywordQualifier": { "$ref": "#/definitions/colorValue" },
+        "syntaxBuiltinType": { "$ref": "#/definitions/colorValue" },
+        "syntaxConstant": { "$ref": "#/definitions/colorValue" },
+        "syntaxConstantTemplate": { "$ref": "#/definitions/colorValue" },
+        "syntaxConstantBuiltin": { "$ref": "#/definitions/colorValue" },
+        "syntaxConstantBuiltinPrivate": { "$ref": "#/definitions/colorValue" },
+        "syntaxConstantTemplateFunction": { "$ref": "#/definitions/colorValue" },
+        "syntaxCharacter": { "$ref": "#/definitions/colorValue" },
+        "syntaxNamespace": { "$ref": "#/definitions/colorValue" },
+        "syntaxTypeTemplate": { "$ref": "#/definitions/colorValue" },
+        "syntaxTypeTemplateFunction": { "$ref": "#/definitions/colorValue" },
+        "syntaxTypeAuto": { "$ref": "#/definitions/colorValue" },
+        "syntaxFunctorParam": { "$ref": "#/definitions/colorValue" },
+        "syntaxFunctorOutput": { "$ref": "#/definitions/colorValue" },
+        "syntaxFunctor": { "$ref": "#/definitions/colorValue" },
+        "syntaxFunctorMember": { "$ref": "#/definitions/colorValue" },
+        "syntaxFunctorMemberPrivate": { "$ref": "#/definitions/colorValue" },
+        "syntaxFunctionMember": { "$ref": "#/definitions/colorValue" },
+        "syntaxFunctionGlobal": { "$ref": "#/definitions/colorValue" },
+        "syntaxFunctionPrivate": { "$ref": "#/definitions/colorValue" },
+        "syntaxParameter": { "$ref": "#/definitions/colorValue" },
+        "syntaxParameterOutput": { "$ref": "#/definitions/colorValue" },
+        "syntaxConcept": { "$ref": "#/definitions/colorValue" },
+        "syntaxMember": { "$ref": "#/definitions/colorValue" },
+        "syntaxMemberPrivate": { "$ref": "#/definitions/colorValue" },
+        "syntaxMacro": { "$ref": "#/definitions/colorValue" },
+        "syntaxMacroParam": { "$ref": "#/definitions/colorValue" },
+        "syntaxGlobalStatic": { "$ref": "#/definitions/colorValue" },
+        "syntaxGlobal": { "$ref": "#/definitions/colorValue" },
+        "syntaxGlobalStaticPrivate": { "$ref": "#/definitions/colorValue" },
+        "syntaxCommentDoc": { "$ref": "#/definitions/colorValue" },
+        "syntaxCommentDocKeyword": { "$ref": "#/definitions/colorValue" },
+        "syntaxCommentDocLink": { "$ref": "#/definitions/colorValue" },
+        "syntaxCommentBg": { "$ref": "#/definitions/colorValue" },
+        "syntaxCommentDocBg": { "$ref": "#/definitions/colorValue" },
+        "styleBold": { "type": "boolean" },
+        "styleItalic": { "type": "boolean" }
       },
       "required": ["primary", "secondary", "accent", "text", "textMuted", "background"],
       "additionalProperties": false
@@ -176,6 +217,17 @@
           "required": ["dark", "light"],
           "additionalProperties": false,
           "description": "Separate colors for dark and light modes"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": { "$ref": "#/definitions/colorValue" },
+            "bold": { "type": "boolean" },
+            "italic": { "type": "boolean" }
+          },
+          "required": ["value"],
+          "additionalProperties": false,
+          "description": "Theme entry with optional bold/italic overrides"
         }
       ]
     }

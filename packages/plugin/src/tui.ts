@@ -353,6 +353,47 @@ export type TuiThemeCurrent = {
   readonly syntaxType: RGBA
   readonly syntaxOperator: RGBA
   readonly syntaxPunctuation: RGBA
+  readonly syntaxLanguage: RGBA
+  readonly syntaxKeywordType: RGBA
+  readonly syntaxKeywordStorage: RGBA
+  readonly syntaxKeywordAccess: RGBA
+  readonly syntaxKeywordQualifier: RGBA
+  readonly syntaxBuiltinType: RGBA
+  readonly syntaxConstant: RGBA
+  readonly syntaxConstantTemplate: RGBA
+  readonly syntaxConstantBuiltin: RGBA
+  readonly syntaxConstantBuiltinPrivate: RGBA
+  readonly syntaxConstantTemplateFunction: RGBA
+  readonly syntaxCharacter: RGBA
+  readonly syntaxNamespace: RGBA
+  readonly syntaxTypeTemplate: RGBA
+  readonly syntaxTypeTemplateFunction: RGBA
+  readonly syntaxTypeAuto: RGBA
+  readonly syntaxFunctorParam: RGBA
+  readonly syntaxFunctorOutput: RGBA
+  readonly syntaxFunctor: RGBA
+  readonly syntaxFunctorMember: RGBA
+  readonly syntaxFunctorMemberPrivate: RGBA
+  readonly syntaxFunctionMember: RGBA
+  readonly syntaxFunctionGlobal: RGBA
+  readonly syntaxFunctionPrivate: RGBA
+  readonly syntaxParameter: RGBA
+  readonly syntaxParameterOutput: RGBA
+  readonly syntaxConcept: RGBA
+  readonly syntaxMember: RGBA
+  readonly syntaxMemberPrivate: RGBA
+  readonly syntaxMacro: RGBA
+  readonly syntaxMacroParam: RGBA
+  readonly syntaxGlobalStatic: RGBA
+  readonly syntaxGlobal: RGBA
+  readonly syntaxGlobalStaticPrivate: RGBA
+  readonly syntaxCommentDoc: RGBA
+  readonly syntaxCommentDocKeyword: RGBA
+  readonly syntaxCommentDocLink: RGBA
+  readonly syntaxCommentBg: RGBA
+  readonly syntaxCommentDocBg: RGBA
+  readonly styleBold: boolean
+  readonly styleItalic: boolean
   readonly thinkingOpacity: number
 }
 
