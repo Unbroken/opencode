@@ -226,6 +226,12 @@ for (const item of targets) {
     },
   })
 
+  if (process.platform === "darwin" && item.os === "darwin") {
+    const binaryPath = `dist/${name}/bin/opencode`
+    await $`codesign --remove-signature ${binaryPath}`
+    await $`codesign -s - --force ${binaryPath}`
+  }
+
   // Smoke test: only run if binary is for current platform
   if (item.os === process.platform && item.arch === process.arch && !item.abi) {
     const binaryPath = `dist/${name}/bin/opencode`
