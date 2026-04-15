@@ -1,50 +1,95 @@
-// This method is called when your extension is deactivated
-export function deactivate() {}
-
 import * as vscode from "vscode"
+import { TERMINAL_NAME } from "./common"
+import { selection, file } from "./editor"
+import { start } from "./bridge"
 
-const TERMINAL_NAME = "opencode"
+let stop: (() => void) | undefined
 
-export function activate(context: vscode.ExtensionContext) {
+export function deactivate() {
+  stop?.()
+}
+
+export async function activate(context: vscode.ExtensionContext) {
+  const bridge = await start(context)
+  stop = bridge.stop
+
   const openNewTerminalDisposable = vscode.commands.registerCommand("opencode.openNewTerminal", async () => {
     await openTerminal()
   })
 
   const openTerminalDisposable = vscode.commands.registerCommand("opencode.openTerminal", async () => {
-    // An opencode terminal already exists => focus it
-    const existingTerminal = vscode.window.terminals.find((t) => t.name === TERMINAL_NAME)
+    const existingTerminal = await bridge.registered(vscode.window.activeTerminal)
     if (existingTerminal) {
+      bridge.log("showing registered opencode terminal")
       existingTerminal.show()
       return
     }
-
     await openTerminal()
   })
 
-  let addFilepathDisposable = vscode.commands.registerCommand("opencode.addFilepathToTerminal", async () => {
-    const fileRef = getActiveFile()
-    if (!fileRef) {
-      return
-    }
+  const addFilepathDisposable = vscode.commands.registerCommand("opencode.addFilepathToTerminal", async () => {
+    const fileRef = file()
+    if (!fileRef) return
 
-    const terminal = vscode.window.activeTerminal
-    if (!terminal) {
-      return
-    }
-
-    if (terminal.name === TERMINAL_NAME) {
-      // @ts-ignore
-      const port = terminal.creationOptions.env?.["_EXTENSION_OPENCODE_PORT"]
-      port ? await appendPrompt(parseInt(port), fileRef) : terminal.sendText(fileRef, false)
-      terminal.show()
-    }
+    await appendToPrompt(fileRef)
   })
 
-  context.subscriptions.push(openNewTerminalDisposable, openTerminalDisposable, addFilepathDisposable)
+  const addSelectionDisposable = vscode.commands.registerCommand("opencode.addSelectionToTerminal", async () => {
+    const fileRef = selection()
+    if (!fileRef) return
+
+    await appendToPrompt(fileRef)
+  })
+
+  const openDisposable = vscode.window.onDidOpenTerminal((terminal) => {
+    void bridge.track(terminal)
+  })
+
+  const closeDisposable = vscode.window.onDidCloseTerminal((terminal) => {
+    void bridge.untrack(terminal)
+  })
+
+  const activeTerminalDisposable = vscode.window.onDidChangeActiveTerminal((terminal) => {
+    void bridge.active(terminal)
+  })
+
+  const terminalStateDisposable = vscode.window.onDidChangeTerminalState((terminal) => {
+    if (!terminal.state.isInteractedWith) return
+    void bridge.active(terminal)
+  })
+
+  context.subscriptions.push(
+    openNewTerminalDisposable,
+    openTerminalDisposable,
+    addFilepathDisposable,
+    addSelectionDisposable,
+    openDisposable,
+    closeDisposable,
+    activeTerminalDisposable,
+    terminalStateDisposable,
+    {
+      dispose() {
+        stop?.()
+        stop = undefined
+      },
+    },
+  )
+
+  async function appendToPrompt(text: string) {
+    // Intentionally do not fall back to terminal.sendText(). Mixed-version compatibility
+    // with the older env/HTTP integration is a non-goal; add-file/add-selection should
+    // only target registered bridge-backed instances.
+    const pid = await bridge.target(vscode.window.activeTerminal)
+    const terminal = pid ? await bridge.append(pid, text) : undefined
+    if (terminal !== undefined) {
+      bridge.log("text sent to registered instance", { pid })
+      terminal?.show()
+      return
+    }
+  }
 
   async function openTerminal() {
-    // Create a new terminal in split screen
-    const port = Math.floor(Math.random() * (65535 - 16384 + 1)) + 16384
+    bridge.log("creating opencode terminal")
     const terminal = vscode.window.createTerminal({
       name: TERMINAL_NAME,
       iconPath: {
@@ -55,83 +100,30 @@ export function activate(context: vscode.ExtensionContext) {
         viewColumn: vscode.ViewColumn.Beside,
         preserveFocus: false,
       },
-      env: {
-        _EXTENSION_OPENCODE_PORT: port.toString(),
-        OPENCODE_CALLER: "vscode",
-      },
     })
 
     terminal.show()
-    terminal.sendText(`opencode --port ${port}`)
+    terminal.sendText("opencode")
+    bridge.log("launched opencode in terminal")
 
-    const fileRef = getActiveFile()
-    if (!fileRef) {
-      return
-    }
+    const fileRef = selection()
+    if (!fileRef) return
 
-    // Wait for the terminal to be ready
-    let tries = 10
-    let connected = false
-    do {
-      await new Promise((resolve) => setTimeout(resolve, 200))
-      try {
-        await fetch(`http://localhost:${port}/app`)
-        connected = true
-        break
-      } catch {}
-
-      tries--
-    } while (tries > 0)
-
-    // If connected, append the prompt to the terminal
-    if (connected) {
-      await appendPrompt(port, `In ${fileRef}`)
+    const pid = await terminal.processId
+    if (!pid) return
+    if (!(await bridge.join(pid))) {
+      bridge.log("registration missing", { pid })
       terminal.show()
-    }
-  }
-
-  async function appendPrompt(port: number, text: string) {
-    await fetch(`http://localhost:${port}/tui/append-prompt`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ text }),
-    })
-  }
-
-  function getActiveFile() {
-    const activeEditor = vscode.window.activeTextEditor
-    if (!activeEditor) {
       return
     }
-
-    const document = activeEditor.document
-    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri)
-    if (!workspaceFolder) {
+    if (!(await bridge.ready(pid))) {
+      bridge.log("instance not ready", { pid })
+      terminal.show()
       return
     }
-
-    // Get the relative path from workspace root
-    const relativePath = vscode.workspace.asRelativePath(document.uri)
-    let filepathWithAt = `@${relativePath}`
-
-    // Check if there's a selection and add line numbers
-    const selection = activeEditor.selection
-    if (!selection.isEmpty) {
-      // Convert to 1-based line numbers
-      const startLine = selection.start.line + 1
-      const endLine = selection.end.line + 1
-
-      if (startLine === endLine) {
-        // Single line selection
-        filepathWithAt += `#L${startLine}`
-      } else {
-        // Multi-line selection
-        filepathWithAt += `#L${startLine}-${endLine}`
-      }
+    if ((await bridge.append(pid, `In ${fileRef}`)) === undefined) {
+      bridge.log("append failed after launch", { pid })
     }
-
-    return filepathWithAt
+    terminal.show()
   }
 }

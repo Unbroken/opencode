@@ -20,13 +20,15 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "*"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "opencode.openTerminal",
-        "title": "Open opencode",
+        "title": "opencode: Open",
         "icon": {
           "light": "images/button-dark.svg",
           "dark": "images/button-light.svg"
@@ -34,7 +36,7 @@
       },
       {
         "command": "opencode.openNewTerminal",
-        "title": "Open opencode in new tab",
+        "title": "opencode: Open in new tab",
         "icon": {
           "light": "images/button-dark.svg",
           "dark": "images/button-light.svg"
@@ -42,7 +44,11 @@
       },
       {
         "command": "opencode.addFilepathToTerminal",
-        "title": "Add Filepath to Terminal"
+        "title": "opencode: Add File to Terminal"
+      },
+      {
+        "command": "opencode.addSelectionToTerminal",
+        "title": "opencode: Add Selection to Terminal"
       }
     ],
     "menus": {
@@ -71,8 +77,8 @@
         "linux": "ctrl+shift+escape"
       },
       {
-        "command": "opencode.addFilepathToTerminal",
-        "title": "opencode: Insert At-Mentioned",
+        "command": "opencode.addSelectionToTerminal",
+        "title": "opencode: Add Selection to Terminal",
         "key": "cmd+alt+k",
         "mac": "cmd+alt+k",
         "win": "ctrl+alt+K",
@@ -93,13 +99,17 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.94.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
+    "@types/vscode": "^1.94.0",
+    "@types/ws": "^8.18.1",
     "@typescript/native-preview": "7.0.0-dev.20251207.1",
-    "esbuild": "^0.25.3",
-    "typescript": "^5.8.3",
     "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.25.3",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "ws": "^8.20.0"
   }
 }
