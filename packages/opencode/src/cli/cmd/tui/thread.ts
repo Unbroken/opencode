@@ -5,6 +5,7 @@ import path from "path"
 import { fileURLToPath } from "url"
 import { UI } from "@/cli/ui"
 import * as Log from "@opencode-ai/core/util/log"
+import { Ide } from "@/ide"
 import { errorMessage } from "@/util/error"
 import { withTimeout } from "@/util/timeout"
 import { withNetworkOptions, resolveNetworkOptionsNoConfig } from "@/cli/network"
@@ -21,6 +22,7 @@ import {
   sanitizedProcessEnv,
 } from "@opencode-ai/core/util/opencode-process"
 import { validateSession } from "./validate-session"
+import { Flag } from "@opencode-ai/core/flag/flag"
 
 declare global {
   const OPENCODE_WORKER_PATH: string
@@ -54,6 +56,13 @@ function createEventSource(client: RpcClient): EventSource {
       })
     },
   }
+}
+
+function auth(input?: { username?: string; password?: string }) {
+  const password = input?.password ?? Flag.OPENCODE_SERVER_PASSWORD
+  if (!password) return
+  const username = input?.username ?? Flag.OPENCODE_SERVER_USERNAME ?? "opencode"
+  return `Basic ${btoa(`${username}:${password}`)}`
 }
 
 async function target() {
@@ -197,18 +206,47 @@ export const TuiThreadCommand = cmd({
         network.mdns ||
         network.port !== 0 ||
         network.hostname !== "127.0.0.1"
+      const auto = Ide.serverAuth(external)
+      const header = auth()
 
       const transport = external
         ? {
             url: (await client.call("server", network)).url,
             fetch: undefined,
             events: undefined,
+            headers: header ? { authorization: header } : undefined,
           }
-        : {
-            url: "http://opencode.internal",
-            fetch: createWorkerFetch(client),
-            events: createEventSource(client),
-          }
+        : auto
+          ? {
+              url: (
+                await client.call("server", {
+                  hostname: "127.0.0.1",
+                  port: 0,
+                  cors: [],
+                  username: auto.username,
+                  password: auto.password,
+                })
+              ).url,
+              fetch: undefined,
+              events: undefined,
+              headers: { authorization: auto.authorization },
+            }
+          : {
+              url: "http://opencode.internal",
+              fetch: createWorkerFetch(client),
+              events: createEventSource(client),
+              headers: undefined,
+            }
+
+      const link =
+        transport.url === "http://opencode.internal"
+          ? undefined
+          : Ide.link({
+              port: Number.parseInt(new URL(transport.url).port, 10),
+              host: new URL(transport.url).hostname,
+              authorization: transport.headers?.authorization,
+            })
+      await link?.open()
 
       try {
         await validateSession({
@@ -241,7 +279,14 @@ export const TuiThreadCommand = cmd({
           config,
           directory: cwd,
           fetch: transport.fetch,
+          headers: transport.headers,
           events: transport.events,
+          onReady() {
+            link?.active()
+          },
+          onActive() {
+            link?.active()
+          },
           args: {
             continue: args.continue,
             sessionID: args.session,
@@ -253,6 +298,7 @@ export const TuiThreadCommand = cmd({
         })
         await handle.done
       } finally {
+        link?.close()
         await stop()
       }
     } finally {

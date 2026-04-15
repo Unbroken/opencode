@@ -8,6 +8,7 @@ describe("ide", () => {
     Object.keys(process.env).forEach((key) => {
       delete process.env[key]
     })
+    Ide.reset()
   })
 
   afterAll(() => {
@@ -21,7 +22,7 @@ describe("ide", () => {
     process.env["TERM_PROGRAM"] = "vscode"
     process.env["GIT_ASKPASS"] = "/path/to/Visual Studio Code.app/Contents/Resources/app/extensions/git/dist/askpass.sh"
 
-    expect(Ide.ide()).toBe("Visual Studio Code")
+    expect(Ide.name()).toBe("Visual Studio Code")
   })
 
   test("should detect Visual Studio Code Insiders", () => {
@@ -29,35 +30,35 @@ describe("ide", () => {
     process.env["GIT_ASKPASS"] =
       "/Applications/Visual Studio Code - Insiders.app/Contents/Resources/app/extensions/git/dist/askpass.sh"
 
-    expect(Ide.ide()).toBe("Visual Studio Code - Insiders")
+    expect(Ide.name()).toBe("Visual Studio Code - Insiders")
   })
 
   test("should detect Cursor", () => {
     process.env["TERM_PROGRAM"] = "vscode"
     process.env["GIT_ASKPASS"] = "/path/to/Cursor.app/Contents/Resources/app/extensions/git/dist/askpass.sh"
 
-    expect(Ide.ide()).toBe("Cursor")
+    expect(Ide.name()).toBe("Cursor")
   })
 
   test("should detect Unbroken Code from vscode env", () => {
     process.env["TERM_PROGRAM"] = "vscode"
     process.env["GIT_ASKPASS"] = "/Applications/Unbroken Code.app/Contents/Resources/app/extensions/git/dist/askpass.sh"
 
-    expect(Ide.ide()).toBe("Unbroken Code")
+    expect(Ide.name()).toBe("Unbroken Code")
   })
 
   test("should detect VSCodium", () => {
     process.env["TERM_PROGRAM"] = "vscode"
     process.env["GIT_ASKPASS"] = "/path/to/VSCodium.app/Contents/Resources/app/extensions/git/dist/askpass.sh"
 
-    expect(Ide.ide()).toBe("VSCodium")
+    expect(Ide.name()).toBe("VSCodium")
   })
 
   test("should detect Windsurf", () => {
     process.env["TERM_PROGRAM"] = "vscode"
     process.env["GIT_ASKPASS"] = "/path/to/Windsurf.app/Contents/Resources/app/extensions/git/dist/askpass.sh"
 
-    expect(Ide.ide()).toBe("Windsurf")
+    expect(Ide.name()).toBe("Windsurf")
   })
 
   test("should return unknown when TERM_PROGRAM is not vscode", () => {
@@ -65,14 +66,14 @@ describe("ide", () => {
     process.env["GIT_ASKPASS"] =
       "/Applications/Visual Studio Code - Insiders.app/Contents/Resources/app/extensions/git/dist/askpass.sh"
 
-    expect(Ide.ide()).toBe("unknown")
+    expect(Ide.name()).toBe("unknown")
   })
 
   test("should return unknown when GIT_ASKPASS does not contain IDE name", () => {
     process.env["TERM_PROGRAM"] = "vscode"
     process.env["GIT_ASKPASS"] = "/path/to/unknown/askpass.sh"
 
-    expect(Ide.ide()).toBe("unknown")
+    expect(Ide.name()).toBe("unknown")
   })
 
   test("should recognize vscode-insiders OPENCODE_CALLER", () => {
@@ -91,5 +92,25 @@ describe("ide", () => {
     process.env["OPENCODE_CALLER"] = "unknown"
 
     expect(Ide.alreadyInstalled()).toBe(false)
+  })
+
+  test("should report missing bridge env for vscode caller", () => {
+    process.env["OPENCODE_CALLER"] = "vscode"
+
+    expect(Ide.status()).toEqual({
+      status: "error",
+      error: "IDE bridge environment missing",
+    })
+  })
+
+  test("should allow runtime ide status updates", () => {
+    Ide.connecting()
+    expect(Ide.status()).toEqual({ status: "connecting" })
+
+    Ide.error("Lost connection to IDE bridge")
+    expect(Ide.status()).toEqual({
+      status: "error",
+      error: "Lost connection to IDE bridge",
+    })
   })
 })

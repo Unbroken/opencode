@@ -165,6 +165,8 @@ type TuiInput = {
   config: TuiConfig.Resolved
   renderer: CliRenderer
   onSnapshot?: () => Promise<string[]>
+  onReady?: () => void
+  onActive?: () => void
   directory?: string
   fetch?: typeof fetch
   headers?: RequestInit["headers"]
@@ -262,7 +264,11 @@ async function mountTui(input: TuiInput & { keymap: ReturnType<typeof createDefa
                                         <PromptHistoryProvider>
                                           <PromptRefProvider>
                                             <EditorContextProvider>
-                                              <App onSnapshot={input.onSnapshot} />
+                                              <App
+                                                onSnapshot={input.onSnapshot}
+                                                onReady={input.onReady}
+                                                onActive={input.onActive}
+                                              />
                                             </EditorContextProvider>
                                           </PromptRefProvider>
                                         </PromptHistoryProvider>
@@ -365,7 +371,7 @@ async function waitUntilDone(ready: Promise<void>, exited: Promise<void>) {
   await exited
 }
 
-function App(props: { onSnapshot?: () => Promise<string[]> }) {
+function App(props: { onSnapshot?: () => Promise<string[]>; onReady?: () => void; onActive?: () => void }) {
   const tuiConfig = useTuiConfig()
   const route = useRoute()
   const dimensions = useTerminalDimensions()
@@ -418,12 +424,16 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
     })
     .finally(() => {
       setReady(true)
+      setTimeout(() => {
+        props.onReady?.()
+      }, 0)
     })
 
   // Let selection copy/dismiss win ahead of normal bindings when the feature flag is on.
   const offSelectionKeys = keymap.intercept(
     "key",
     ({ event }) => {
+      props.onActive?.()
       if (!Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) return
       Selection.handleSelectionKey(renderer, toast, event)
     },
@@ -1051,6 +1061,7 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
       flexDirection="column"
       backgroundColor={theme.background}
       onMouseDown={(evt) => {
+        props.onActive?.()
         if (!Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT) return
         if (evt.button !== MouseButton.RIGHT) return
 
@@ -1058,7 +1069,14 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         evt.preventDefault()
         evt.stopPropagation()
       }}
-      onMouseUp={Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT ? undefined : () => Selection.copy(renderer, toast)}
+      onMouseUp={
+        Flag.OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT
+          ? () => props.onActive?.()
+          : () => {
+              props.onActive?.()
+              Selection.copy(renderer, toast)
+            }
+      }
     >
       <Show when={Flag.OPENCODE_SHOW_TTFD}>
         <TimeToFirstDraw />

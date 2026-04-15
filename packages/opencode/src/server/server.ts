@@ -36,6 +36,8 @@ type ListenOptions = CorsOptions & {
   hostname: string
   mdns?: boolean
   mdnsDomain?: string
+  username?: string
+  password?: string
 }
 type ListenerState = {
   scope: Scope.Scope
@@ -113,8 +115,19 @@ function listenerLayer(opts: ListenOptions, port: number) {
     // `ConfigProvider` snapshots `process.env` on first read and caches the
     // result on a module-singleton Reference; without overriding it here,
     // every later `Server.listen()` keeps observing that initial snapshot.
-    Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv())),
+    // Per-listener `username`/`password` overlay onto the env so the IDE
+    // bridge can spin up an authenticated listener with a generated password
+    // without mutating `process.env`.
+    Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: listenerEnv(opts) }))),
   )
+}
+
+function listenerEnv(opts: ListenOptions) {
+  if (opts.username === undefined && opts.password === undefined) return process.env as Record<string, string>
+  const env: Record<string, string> = { ...(process.env as Record<string, string>) }
+  if (opts.username !== undefined) env["OPENCODE_SERVER_USERNAME"] = opts.username
+  if (opts.password !== undefined) env["OPENCODE_SERVER_PASSWORD"] = opts.password
+  return env
 }
 
 function startWithPortFallback(opts: ListenOptions) {

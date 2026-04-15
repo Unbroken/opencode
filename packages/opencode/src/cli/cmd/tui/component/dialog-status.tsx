@@ -13,8 +13,7 @@ export function DialogStatus() {
   const { theme } = useTheme()
   const dialog = useDialog()
 
-  const ide = createMemo(() => Ide.ide())
-  const connected = createMemo(() => Ide.alreadyInstalled())
+  const ide = createMemo(() => Ide.summary())
   const enabledFormatters = createMemo(() => sync.data.formatter.filter((f) => f.enabled))
 
   const plugins = createMemo(() => {
@@ -172,14 +171,18 @@ export function DialogStatus() {
           <text
             flexShrink={0}
             style={{
-              fg: connected() ? theme.success : theme.textMuted,
+              fg: {
+                connected: theme.success,
+                connecting: theme.warning,
+                error: theme.error,
+                disconnected: theme.textMuted,
+              }[ide().status],
             }}
           >
             •
           </text>
           <text fg={theme.text} wrapMode="word">
-            <b>{ide() === "unknown" ? "IDE" : ide()}</b>{" "}
-            <span style={{ fg: theme.textMuted }}>{connected() ? "Connected" : "Not connected"}</span>
+            <b>{ide().name}</b> <span style={{ fg: theme.textMuted }}>{ide().note}</span>
           </text>
         </box>
       </box>
