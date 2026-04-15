@@ -1,5 +1,6 @@
 import { TextAttributes } from "@opentui/core"
 import { fileURLToPath } from "bun"
+import { Ide } from "@/ide"
 import { useTheme } from "../context/theme"
 import { useDialog } from "@tui/ui/dialog"
 import { useSync } from "@tui/context/sync"
@@ -12,6 +13,8 @@ export function DialogStatus() {
   const { theme } = useTheme()
   const dialog = useDialog()
 
+  const ide = createMemo(() => Ide.ide())
+  const connected = createMemo(() => Ide.alreadyInstalled())
   const enabledFormatters = createMemo(() => sync.data.formatter.filter((f) => f.enabled))
 
   const plugins = createMemo(() => {
@@ -163,6 +166,23 @@ export function DialogStatus() {
           </For>
         </box>
       </Show>
+      <box>
+        <text fg={theme.text}>IDE</text>
+        <box flexDirection="row" gap={1}>
+          <text
+            flexShrink={0}
+            style={{
+              fg: connected() ? theme.success : theme.textMuted,
+            }}
+          >
+            •
+          </text>
+          <text fg={theme.text} wrapMode="word">
+            <b>{ide() === "unknown" ? "IDE" : ide()}</b>{" "}
+            <span style={{ fg: theme.textMuted }}>{connected() ? "Connected" : "Not connected"}</span>
+          </text>
+        </box>
+      </box>
     </box>
   )
 }
