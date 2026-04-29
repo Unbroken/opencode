@@ -6,6 +6,7 @@ import { createStore, produce, unwrap } from "solid-js/store"
 import { createSimpleContext } from "../../context/helper"
 import { appendFile, writeFile } from "fs/promises"
 import type { AgentPart, FilePart, TextPart } from "@opencode-ai/sdk/v2"
+import { refreshPastePreviews } from "./paste"
 
 export type PromptInfo = {
   input: string
@@ -32,6 +33,12 @@ export function isDuplicateEntry(previous: PromptInfo | undefined, next: PromptI
   return JSON.stringify(previous) === JSON.stringify(next)
 }
 
+function isPromptInfo(value: unknown): value is PromptInfo {
+  if (typeof value !== "object" || value === null) return false
+  const entry = value as { input?: unknown; parts?: unknown }
+  return typeof entry.input === "string" && Array.isArray(entry.parts)
+}
+
 export const { use: usePromptHistory, provider: PromptHistoryProvider } = createSimpleContext({
   name: "PromptHistory",
   init: () => {
@@ -48,7 +55,8 @@ export const { use: usePromptHistory, provider: PromptHistoryProvider } = create
             return null
           }
         })
-        .filter((line): line is PromptInfo => line !== null)
+        .filter(isPromptInfo)
+        .map(refreshPastePreviews)
         .slice(-MAX_HISTORY_ENTRIES)
 
       setStore("history", lines)
@@ -87,7 +95,7 @@ export const { use: usePromptHistory, provider: PromptHistoryProvider } = create
         return store.history.at(store.index)
       },
       append(item: PromptInfo) {
-        const entry = structuredClone(unwrap(item))
+        const entry = structuredClone(unwrap(refreshPastePreviews(item)))
         if (isDuplicateEntry(store.history.at(-1), entry)) {
           setStore("index", 0)
           return

@@ -61,6 +61,7 @@ import { Flag } from "@opencode-ai/core/flag/flag"
 import { type WorkspaceStatus } from "../workspace-label"
 import { OPENCODE_BASE_MODE, useBindings, useCommandShortcut, useLeaderActive, useOpencodeKeymap } from "../../keymap"
 import { useTuiConfig } from "../../context/tui-config"
+import { pastePreviewMarkerRanges, pastePromptPlaceholder } from "./paste"
 
 export type PromptProps = {
   sessionID?: string
@@ -304,6 +305,7 @@ export function Prompt(props: PromptProps) {
   const agentStyleId = syntax().getStyleId("extmark.agent")!
   const pasteStyleId = syntax().getStyleId("extmark.paste")!
   let promptPartTypeId = 0
+  let pasteMarkerTypeId = 0
   const event = useEvent()
 
   event.on(TuiEvent.PromptAppend.type, (evt) => {
@@ -745,14 +747,13 @@ export function Prompt(props: PromptProps) {
         start = part.source.text.start
         end = part.source.text.end
         virtualText = part.source.text.value
-        styleId = pasteStyleId
       }
 
       if (virtualText) {
         const extmarkId = input.extmarks.create({
           start,
           end,
-          virtual: true,
+          virtual: part.type !== "text",
           styleId,
           typeId: promptPartTypeId,
         })
@@ -761,6 +762,17 @@ export function Prompt(props: PromptProps) {
           newMap.set(extmarkId, partIndex)
           return newMap
         })
+        if (part.type === "text") {
+          pastePreviewMarkerRanges(virtualText, start).forEach((range) => {
+            input.extmarks.create({
+              start: range.start,
+              end: range.end,
+              virtual: false,
+              styleId: pasteStyleId,
+              typeId: pasteMarkerTypeId,
+            })
+          })
+        }
       }
     })
   }
@@ -786,6 +798,7 @@ export function Prompt(props: PromptProps) {
               } else if (part.type === "text" && part.source?.text) {
                 part.source.text.start = extmark.start
                 part.source.text.end = extmark.end
+                if (input.plainText.slice(extmark.start, extmark.end) !== part.source.text.value) continue
               }
               newMap.set(extmark.id, newParts.length)
               newParts.push(part)
@@ -1107,7 +1120,11 @@ export function Prompt(props: PromptProps) {
       const partIndex = store.extmarkToPartIndex.get(extmark.id)
       if (partIndex !== undefined) {
         const part = store.prompt.parts[partIndex]
-        if (part?.type === "text" && part.text) {
+        if (
+          part?.type === "text" &&
+          part.source?.text &&
+          inputText.slice(extmark.start, extmark.end) === part.source.text.value
+        ) {
           const before = inputText.slice(0, extmark.start)
           const after = inputText.slice(extmark.end)
           inputText = before + part.text + after
@@ -1239,9 +1256,18 @@ export function Prompt(props: PromptProps) {
     const extmarkId = input.extmarks.create({
       start: extmarkStart,
       end: extmarkEnd,
-      virtual: true,
-      styleId: pasteStyleId,
+      virtual: false,
       typeId: promptPartTypeId,
+    })
+
+    pastePreviewMarkerRanges(virtualText, extmarkStart).forEach((range) => {
+      input.extmarks.create({
+        start: range.start,
+        end: range.end,
+        virtual: false,
+        styleId: pasteStyleId,
+        typeId: pasteMarkerTypeId,
+      })
     })
 
     setStore(
@@ -1305,12 +1331,12 @@ export function Prompt(props: PromptProps) {
       } catch {}
     }
 
-    const lineCount = (pastedContent.match(/\n/g)?.length ?? 0) + 1
+    const virtualText = pastePromptPlaceholder(pastedContent)
     if (
-      (lineCount >= 3 || pastedContent.length > 150) &&
+      virtualText !== undefined &&
       kv.get("paste_summary_enabled", !sync.data.config.experimental?.disable_paste_summary)
     ) {
-      pasteText(pastedContent, `[Pasted ~${lineCount} lines]`)
+      pasteText(pastedContent, virtualText)
       return
     }
 
@@ -1550,6 +1576,9 @@ export function Prompt(props: PromptProps) {
                 setInputTarget(r)
                 if (promptPartTypeId === 0) {
                   promptPartTypeId = input.extmarks.registerType("prompt-part")
+                }
+                if (pasteMarkerTypeId === 0) {
+                  pasteMarkerTypeId = input.extmarks.registerType("paste-marker")
                 }
                 props.ref?.(ref)
                 setTimeout(() => {
