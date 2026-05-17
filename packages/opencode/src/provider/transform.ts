@@ -1258,7 +1258,7 @@ export function providerOptions(model: Provider.Model, options: { [x: string]: a
   return { [key]: options }
 }
 
-export function maxOutputTokens(model: Provider.Model, outputTokenMax = OUTPUT_TOKEN_MAX): number {
+export function maxOutputTokens(model: { limit: { output: number } }, outputTokenMax = OUTPUT_TOKEN_MAX): number {
   return Math.min(model.limit.output, outputTokenMax) || outputTokenMax
 }
 

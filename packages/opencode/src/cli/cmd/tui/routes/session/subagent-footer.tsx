@@ -7,6 +7,7 @@ import type { AssistantMessage } from "@opencode-ai/sdk/v2"
 import { Locale } from "@/util/locale"
 import { useTerminalDimensions } from "@opentui/solid"
 import { useCommandShortcut, useOpencodeKeymap } from "../../keymap"
+import { SessionOverflow } from "@/session/overflow"
 
 export function SubagentFooter() {
   const route = useRouteData("session")
@@ -35,12 +36,11 @@ export function SubagentFooter() {
     const last = msg.findLast((item): item is AssistantMessage => item.role === "assistant" && item.tokens.output > 0)
     if (!last) return
 
-    const tokens =
-      last.tokens.input + last.tokens.output + last.tokens.reasoning + last.tokens.cache.read + last.tokens.cache.write
+    const tokens = SessionOverflow.count(last.tokens)
     if (tokens <= 0) return
 
     const model = sync.data.provider.find((item) => item.id === last.providerID)?.models[last.modelID]
-    const pct = model?.limit.context ? `${Math.round((tokens / model.limit.context) * 100)}%` : undefined
+    const percent = model ? SessionOverflow.percent({ cfg: sync.data.config, tokens: last.tokens, model }) : null
     const cost = session()?.cost ?? 0
 
     const money = new Intl.NumberFormat("en-US", {
@@ -49,7 +49,7 @@ export function SubagentFooter() {
     })
 
     return {
-      context: pct ? `${Locale.number(tokens)} (${pct})` : Locale.number(tokens),
+      context: percent === null ? Locale.number(tokens) : `${Locale.number(tokens)} (${percent}%)`,
       cost: cost > 0 ? money.format(cost) : undefined,
     }
   })
