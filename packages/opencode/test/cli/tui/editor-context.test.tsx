@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises"
+import { mkdir, utimes, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { afterEach, expect, spyOn, test } from "bun:test"
@@ -142,7 +142,7 @@ test("useEditorContext reconnect switches editor server by session directory", a
   mounted.dispose()
 })
 
-test("useEditorContext favors configured port over lock files", async () => {
+test("useEditorContext uses matching lock over stale configured port", async () => {
   await using tmp = await tmpdir()
   const startupDirectory = path.join(tmp.path, "startup")
   const ideDirectory = path.join(tmp.path, ".claude", "ide")
@@ -156,16 +156,96 @@ test("useEditorContext favors configured port over lock files", async () => {
     }),
   )
 
-  process.env.CLAUDE_CODE_SSE_PORT = "4010"
-  process.env.OPENCODE_EDITOR_SSE_PORT = undefined
+  process.env.CLAUDE_CODE_SSE_PORT = undefined
+  process.env.OPENCODE_EDITOR_SSE_PORT = "4010"
   spyOn(process, "cwd").mockImplementation(() => startupDirectory)
   spyOn(os, "homedir").mockImplementation(() => tmp.path)
-  const socket = new FakeWebSocket("ws://127.0.0.1:4010")
+  const socket = new FakeWebSocket("ws://127.0.0.1:3001")
 
   const mounted = mountEditorContext(createWebSocketImpl(socket))
   await nextTick()
 
   expect(socket.closed).toBeFalse()
+
+  mounted.dispose()
+})
+
+test("useEditorContext includes matching lock auth for configured port", async () => {
+  await using tmp = await tmpdir()
+  const startupDirectory = path.join(tmp.path, "startup")
+  const ideDirectory = path.join(tmp.path, ".claude", "ide")
+  await mkdir(startupDirectory, { recursive: true })
+  await mkdir(ideDirectory, { recursive: true })
+  await writeFile(
+    path.join(ideDirectory, "4010.lock"),
+    JSON.stringify({
+      authToken: "test-token",
+      transport: "ws",
+      workspaceFolders: [startupDirectory],
+    }),
+  )
+
+  process.env.CLAUDE_CODE_SSE_PORT = "4010"
+  process.env.OPENCODE_EDITOR_SSE_PORT = undefined
+  spyOn(process, "cwd").mockImplementation(() => startupDirectory)
+  spyOn(os, "homedir").mockImplementation(() => tmp.path)
+  const socket = new FakeWebSocket("ws://127.0.0.1:4010", {
+    headers: { "x-claude-code-ide-authorization": "test-token" },
+  })
+
+  const mounted = mountEditorContext(createWebSocketImpl(socket))
+  await nextTick()
+
+  expect(socket.closed).toBeFalse()
+
+  mounted.dispose()
+})
+
+test("useEditorContext refreshes stale editor env port from newer matching lock", async () => {
+  await using tmp = await tmpdir()
+  const startupDirectory = path.join(tmp.path, "startup")
+  const ideDirectory = path.join(tmp.path, ".claude", "ide")
+  await mkdir(startupDirectory, { recursive: true })
+  await mkdir(ideDirectory, { recursive: true })
+  await writeFile(
+    path.join(ideDirectory, "4010.lock"),
+    JSON.stringify({
+      authToken: "old-token",
+      transport: "ws",
+      workspaceFolders: [startupDirectory],
+    }),
+  )
+  await writeFile(
+    path.join(ideDirectory, "4011.lock"),
+    JSON.stringify({
+      authToken: "new-token",
+      transport: "ws",
+      workspaceFolders: [startupDirectory],
+    }),
+  )
+  await utimes(path.join(ideDirectory, "4010.lock"), new Date(1000), new Date(1000))
+  await utimes(path.join(ideDirectory, "4011.lock"), new Date(2000), new Date(2000))
+
+  process.env.CLAUDE_CODE_SSE_PORT = undefined
+  process.env.OPENCODE_EDITOR_SSE_PORT = "4010"
+  spyOn(process, "cwd").mockImplementation(() => startupDirectory)
+  spyOn(os, "homedir").mockImplementation(() => tmp.path)
+  const oldSocket = new FakeWebSocket("ws://127.0.0.1:4010", {
+    headers: { "x-claude-code-ide-authorization": "old-token" },
+  })
+  const newSocket = new FakeWebSocket("ws://127.0.0.1:4011", {
+    headers: { "x-claude-code-ide-authorization": "new-token" },
+  })
+
+  const mounted = mountEditorContext(createWebSocketImpl(oldSocket, newSocket))
+  await nextTick()
+
+  expect(oldSocket.closed).toBeFalse()
+
+  oldSocket.close()
+  await Bun.sleep(1100)
+
+  expect(newSocket.closed).toBeFalse()
 
   mounted.dispose()
 })

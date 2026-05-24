@@ -140,6 +140,7 @@ export const { use: useEditorContext, provider: EditorContextProvider } = create
     let lastZedSelectionKey: string | undefined
     let directory = process.cwd()
     let preserveSelectionOnReconnect = false
+    let refreshEditorLock = false
     const pending = new Map<number, string>()
 
     const setSelection = (selection: EditorSelection | undefined) => {
@@ -171,7 +172,8 @@ export const { use: useEditorContext, provider: EditorContextProvider } = create
     const connect = () => {
       if (closed) return
 
-      const connection = resolveEditorConnection(directory)
+      const connection = resolveEditorConnection(directory, { refreshLock: refreshEditorLock })
+      refreshEditorLock = false
       if (!connection) {
         if (!isZedTerminal()) {
           setStore("status", "disabled")
@@ -265,6 +267,7 @@ export const { use: useEditorContext, provider: EditorContextProvider } = create
         pending.clear()
         if (closed) return
 
+        refreshEditorLock = true
         setStore("status", "connecting")
         scheduleReconnect()
       })
@@ -363,9 +366,28 @@ function parsePort(value: string | undefined) {
   return parsed
 }
 
-function resolveEditorConnection(directory: string): EditorConnection | undefined {
+function resolveEditorConnection(directory: string, options?: { refreshLock?: boolean }): EditorConnection | undefined {
   const port = parsePort(process.env.CLAUDE_CODE_SSE_PORT || process.env.OPENCODE_EDITOR_SSE_PORT)
   if (port) {
+    const envLock = readEditorLockFile(path.join(os.homedir(), ".claude", "ide", `${port}.lock`))
+    if (envLock && !options?.refreshLock) {
+      return {
+        url: `ws://127.0.0.1:${envLock.port}`,
+        authToken: envLock.authToken,
+        source: `env:${envLock.port}`,
+      }
+    }
+
+    const lock = resolveEditorLockFile(directory)
+    const current = lock && lock.mtimeMs > (envLock?.mtimeMs ?? 0) ? lock : envLock
+    if (current) {
+      return {
+        url: `ws://127.0.0.1:${current.port}`,
+        authToken: current.authToken,
+        source: current === lock ? `lock:${current.port}` : `env:${current.port}`,
+      }
+    }
+
     return {
       url: `ws://127.0.0.1:${port}`,
       source: `env:${port}`,
